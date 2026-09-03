@@ -16,8 +16,18 @@ const errorHandler = (err, req, res, next) => {
     return res.status(400).json({ message: 'Data referensi tidak ditemukan.' });
   }
 
+  // CORS errors
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({ message: 'Akses tidak diizinkan.' });
+  }
+
   const statusCode = err.statusCode || 500;
-  const message = err.message || 'Terjadi kesalahan pada server.';
+
+  // In production, don't leak internal error details
+  const isProduction = process.env.NODE_ENV === 'production';
+  const message = statusCode === 500 && isProduction
+    ? 'Terjadi kesalahan pada server.'
+    : err.message || 'Terjadi kesalahan pada server.';
 
   res.status(statusCode).json({ message });
 };

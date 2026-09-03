@@ -81,46 +81,97 @@ const getOrder = async (req, res, next) => {
 };
 
 const updateOrderStatus = async (req, res, next) => {
+  const connection = await db.getConnection();
   try {
+    await connection.beginTransaction();
+
     const { id } = req.params;
     const { status } = req.body;
 
+    // Valid status transition map
+    const validTransitions = {
+      pending: ['processing', 'cancelled'],
+      processing: ['packed', 'cancelled'],
+      packed: ['shipped', 'cancelled'],
+      shipped: ['completed'],
+      completed: [],
+      cancelled: []
+    };
+
     const validStatuses = ['pending', 'processing', 'packed', 'shipped', 'completed', 'cancelled'];
     if (!validStatuses.includes(status)) {
+      await connection.rollback();
       return res.status(400).json({ message: 'Status tidak valid.' });
     }
 
-    await db.query('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
+    // Get current order status with row lock
+    const [orders] = await connection.query(
+      'SELECT id, status FROM orders WHERE id = ? FOR UPDATE',
+      [id]
+    );
+
+    if (orders.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Pesanan tidak ditemukan.' });
+    }
+
+    const currentStatus = orders[0].status;
+
+    // Idempotency check - if already the same status, return success
+    if (currentStatus === status) {
+      await connection.rollback();
+      return res.json({ message: 'Status pesanan sudah sesuai.' });
+    }
+
+    // Validate status transition
+    const allowedNextStatuses = validTransitions[currentStatus];
+    if (!allowedNextStatuses || !allowedNextStatuses.includes(status)) {
+      await connection.rollback();
+      return res.status(400).json({
+        message: `Tidak dapat mengubah status dari "${currentStatus}" ke "${status}".`
+      });
+    }
+
+    // Update order status
+    await connection.query('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
 
     // Update payment status if order completed
     if (status === 'completed') {
-      await db.query(
+      await connection.query(
         'UPDATE payments SET payment_status = ?, paid_at = NOW() WHERE order_id = ?',
         ['paid', id]
       );
     }
 
-    // If cancelled, restore stock
+    // If cancelled, restore stock within the same transaction
     if (status === 'cancelled') {
-      const [items] = await db.query('SELECT * FROM order_items WHERE order_id = ?', [id]);
+      const [items] = await connection.query('SELECT * FROM order_items WHERE order_id = ?', [id]);
       for (const item of items) {
-        await db.query(
-          'UPDATE products SET stock = stock + ?, sold = sold - ? WHERE id = ?',
+        await connection.query(
+          'UPDATE products SET stock = stock + ?, sold = GREATEST(sold - ?, 0) WHERE id = ?',
           [item.quantity, item.quantity, item.product_id]
         );
         if (item.variant_id) {
-          await db.query(
+          await connection.query(
             'UPDATE product_variants SET stock = stock + ? WHERE id = ?',
             [item.quantity, item.variant_id]
           );
         }
       }
-      await db.query("UPDATE payments SET payment_status = 'failed' WHERE order_id = ?", [id]);
+      await connection.query(
+        "UPDATE payments SET payment_status = 'failed' WHERE order_id = ?",
+        [id]
+      );
     }
+
+    await connection.commit();
 
     res.json({ message: 'Status pesanan berhasil diperbarui.' });
   } catch (error) {
+    await connection.rollback();
     next(error);
+  } finally {
+    connection.release();
   }
 };
 

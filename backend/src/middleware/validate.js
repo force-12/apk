@@ -32,6 +32,7 @@ const checkoutValidation = [
   body('shipping_address').trim().notEmpty().withMessage('Alamat wajib diisi.'),
   body('province').trim().notEmpty().withMessage('Provinsi wajib diisi.'),
   body('city').trim().notEmpty().withMessage('Kota wajib diisi.'),
+  body('district').optional().trim(),
   body('postal_code').trim().notEmpty().withMessage('Kode pos wajib diisi.'),
   body('payment_method').isIn(['transfer_bank', 'e_wallet', 'cod']).withMessage('Metode pembayaran tidak valid.'),
   body('courier').trim().notEmpty().withMessage('Kurir wajib dipilih.')

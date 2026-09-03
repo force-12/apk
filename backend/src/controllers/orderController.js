@@ -1,9 +1,16 @@
 const db = require('../config/database');
 const { generateOrderNumber } = require('../utils/helpers');
+const { validationResult } = require('express-validator');
 
 const createOrder = async (req, res, next) => {
   const connection = await db.getConnection();
   try {
+    // Check validation result from checkoutValidation middleware
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ message: errors.array()[0].msg, errors: errors.array() });
+    }
+
     await connection.beginTransaction();
 
     const {
@@ -11,11 +18,6 @@ const createOrder = async (req, res, next) => {
       province, city, district, postal_code,
       courier, payment_method, notes
     } = req.body;
-
-    // Validate required fields
-    if (!recipient_name || !recipient_phone || !shipping_address || !province || !city || !postal_code || !payment_method || !courier) {
-      return res.status(400).json({ message: 'Semua field wajib diisi.' });
-    }
 
     // Get cart items
     const [carts] = await connection.query('SELECT id FROM cart WHERE user_id = ?', [req.user.id]);

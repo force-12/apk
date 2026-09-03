@@ -1,4 +1,5 @@
 const db = require('../../config/database');
+const { validationResult } = require('express-validator');
 
 const getProducts = async (req, res, next) => {
   try {
@@ -43,6 +44,11 @@ const getProducts = async (req, res, next) => {
 const createProduct = async (req, res, next) => {
   const connection = await db.getConnection();
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ message: errors.array()[0].msg, errors: errors.array() });
+    }
+
     await connection.beginTransaction();
 
     const { name, brand_id, category_id, description, price, discount, stock, warranty,
@@ -84,6 +90,11 @@ const createProduct = async (req, res, next) => {
 
 const updateProduct = async (req, res, next) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ message: errors.array()[0].msg, errors: errors.array() });
+    }
+
     const { id } = req.params;
     const { name, brand_id, category_id, description, price, discount, stock, warranty,
             specifications, is_featured } = req.body;
