@@ -21,6 +21,25 @@ const paymentMethods = [
   { id: 'cod', name: 'COD', icon: HiOutlineCurrencyDollar, desc: 'Bayar di Tempat' },
 ];
 
+function InputField({ label, name, type = 'text', placeholder, colSpan, value, onChange, error }) {
+  return (
+    <div className={colSpan || ''}>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <input
+        type={type}
+        name={name}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${
+          error ? 'border-red-500' : 'border-gray-300'
+        }`}
+      />
+      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+    </div>
+  );
+}
+
 export default function Checkout() {
   const navigate = useNavigate();
   const { isAuthenticated, loading: authLoading } = useAuth();
@@ -110,23 +129,6 @@ export default function Checkout() {
 
   const total = cartTotal + SHIPPING_COST;
 
-  const InputField = ({ label, name, type = 'text', placeholder, colSpan }) => (
-    <div className={colSpan || ''}>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-      <input
-        type={type}
-        name={name}
-        value={form[name]}
-        onChange={handleChange}
-        placeholder={placeholder}
-        className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${
-          errors[name] ? 'border-red-500' : 'border-gray-300'
-        }`}
-      />
-      {errors[name] && <p className="text-xs text-red-500 mt-1">{errors[name]}</p>}
-    </div>
-  );
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Checkout</h1>
@@ -142,15 +144,15 @@ export default function Checkout() {
                 <span>Informasi Pengiriman</span>
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <InputField label="Nama Penerima" name="recipient_name" placeholder="Nama lengkap penerima" />
-                <InputField label="Nomor Telepon" name="recipient_phone" placeholder="08xxxxxxxxxx" />
+                <InputField label="Nama Penerima" name="recipient_name" value={form.recipient_name} onChange={handleChange} error={errors.recipient_name} placeholder="Nama lengkap penerima" />
+                <InputField label="Nomor Telepon" name="recipient_phone" value={form.recipient_phone} onChange={handleChange} error={errors.recipient_phone} placeholder="08xxxxxxxxxx" />
                 <div className="sm:col-span-2">
-                  <InputField label="Alamat Lengkap" name="shipping_address" placeholder="Jalan, nomor rumah, RT/RW" />
+                  <InputField label="Alamat Lengkap" name="shipping_address" value={form.shipping_address} onChange={handleChange} error={errors.shipping_address} placeholder="Jalan, nomor rumah, RT/RW" />
                 </div>
-                <InputField label="Provinsi" name="province" placeholder="Provinsi" />
-                <InputField label="Kota/Kabupaten" name="city" placeholder="Kota/Kabupaten" />
-                <InputField label="Kecamatan" name="district" placeholder="Kecamatan" />
-                <InputField label="Kode Pos" name="postal_code" placeholder="Kode Pos" />
+                <InputField label="Provinsi" name="province" value={form.province} onChange={handleChange} error={errors.province} placeholder="Provinsi" />
+                <InputField label="Kota/Kabupaten" name="city" value={form.city} onChange={handleChange} error={errors.city} placeholder="Kota/Kabupaten" />
+                <InputField label="Kecamatan" name="district" value={form.district} onChange={handleChange} error={errors.district} placeholder="Kecamatan" />
+                <InputField label="Kode Pos" name="postal_code" value={form.postal_code} onChange={handleChange} error={errors.postal_code} placeholder="Kode Pos" />
               </div>
             </div>
 

@@ -4,6 +4,28 @@ import { HiOutlineUser, HiOutlineEnvelope, HiOutlinePhone, HiOutlineLockClosed }
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 
+function InputField({ label, name, type = 'text', placeholder, icon: Icon, value, onChange, error }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <div className="relative">
+        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <input
+          type={type}
+          name={name}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          className={`w-full pl-10 pr-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${
+            error ? 'border-red-500' : 'border-gray-300'
+          }`}
+        />
+      </div>
+      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+    </div>
+  );
+}
+
 export default function Register() {
   const navigate = useNavigate();
   const { register } = useAuth();
@@ -58,26 +80,6 @@ export default function Register() {
     }
   };
 
-  const InputField = ({ label, name, type = 'text', placeholder, icon: Icon }) => (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-      <div className="relative">
-        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <input
-          type={type}
-          name={name}
-          value={form[name]}
-          onChange={handleChange}
-          placeholder={placeholder}
-          className={`w-full pl-10 pr-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${
-            errors[name] ? 'border-red-500' : 'border-gray-300'
-          }`}
-        />
-      </div>
-      {errors[name] && <p className="text-xs text-red-500 mt-1">{errors[name]}</p>}
-    </div>
-  );
-
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
@@ -88,11 +90,11 @@ export default function Register() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <InputField label="Nama Lengkap" name="name" placeholder="Nama lengkap Anda" icon={HiOutlineUser} />
-            <InputField label="Email" name="email" type="email" placeholder="nama@email.com" icon={HiOutlineEnvelope} />
-            <InputField label="Nomor Telepon" name="phone" placeholder="08xxxxxxxxxx" icon={HiOutlinePhone} />
-            <InputField label="Password" name="password" type="password" placeholder="Minimal 6 karakter" icon={HiOutlineLockClosed} />
-            <InputField label="Konfirmasi Password" name="password_confirmation" type="password" placeholder="Ulangi password" icon={HiOutlineLockClosed} />
+            <InputField label="Nama Lengkap" name="name" value={form.name} onChange={handleChange} error={errors.name} placeholder="Nama lengkap Anda" icon={HiOutlineUser} />
+            <InputField label="Email" name="email" type="email" value={form.email} onChange={handleChange} error={errors.email} placeholder="nama@email.com" icon={HiOutlineEnvelope} />
+            <InputField label="Nomor Telepon" name="phone" value={form.phone} onChange={handleChange} error={errors.phone} placeholder="08xxxxxxxxxx" icon={HiOutlinePhone} />
+            <InputField label="Password" name="password" type="password" value={form.password} onChange={handleChange} error={errors.password} placeholder="Minimal 6 karakter" icon={HiOutlineLockClosed} />
+            <InputField label="Konfirmasi Password" name="password_confirmation" type="password" value={form.password_confirmation} onChange={handleChange} error={errors.password_confirmation} placeholder="Ulangi password" icon={HiOutlineLockClosed} />
 
             <button
               type="submit"

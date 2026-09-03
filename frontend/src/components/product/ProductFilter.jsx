@@ -2,18 +2,11 @@ import { useState, useEffect } from 'react';
 import { HiOutlineFunnel, HiXMark } from 'react-icons/hi2';
 import { getBrands } from '../../api/products';
 
-export default function ProductFilter({ filters, onFilterChange, onReset }) {
-  const [brands, setBrands] = useState([]);
-  const [mobileOpen, setMobileOpen] = useState(false);
+const ramOptions = ['4GB', '6GB', '8GB', '12GB', '16GB'];
+const storageOptions = ['64GB', '128GB', '256GB', '512GB', '1TB'];
 
-  useEffect(() => {
-    getBrands().then(res => setBrands(res.data.brands)).catch(() => {});
-  }, []);
-
-  const ramOptions = ['4GB', '6GB', '8GB', '12GB', '16GB'];
-  const storageOptions = ['64GB', '128GB', '256GB', '512GB', '1TB'];
-
-  const FilterContent = () => (
+function FilterContent({ brands, filters, onFilterChange, onReset }) {
+  return (
     <div className="space-y-6">
       {/* Brand */}
       <div>
@@ -106,6 +99,15 @@ export default function ProductFilter({ filters, onFilterChange, onReset }) {
       </button>
     </div>
   );
+}
+
+export default function ProductFilter({ filters, onFilterChange, onReset }) {
+  const [brands, setBrands] = useState([]);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    getBrands().then(res => setBrands(res.data.brands)).catch(() => {});
+  }, []);
 
   return (
     <>
@@ -119,7 +121,7 @@ export default function ProductFilter({ filters, onFilterChange, onReset }) {
       <div className="hidden lg:block w-64 flex-shrink-0">
         <div className="card p-5 sticky top-20">
           <h3 className="font-semibold text-gray-900 mb-4">Filter Produk</h3>
-          <FilterContent />
+          <FilterContent brands={brands} filters={filters} onFilterChange={onFilterChange} onReset={onReset} />
         </div>
       </div>
 
@@ -134,7 +136,7 @@ export default function ProductFilter({ filters, onFilterChange, onReset }) {
                 <HiXMark className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-4"><FilterContent /></div>
+            <div className="p-4"><FilterContent brands={brands} filters={filters} onFilterChange={onFilterChange} onReset={onReset} /></div>
           </div>
         </div>
       )}
