@@ -143,15 +143,19 @@ const updateOrderStatus = async (req, res, next) => {
       );
     }
 
-    // If cancelled, restore stock within the same transaction
+    // If cancelled, restore stock within the same transaction with row locking
     if (status === 'cancelled') {
       const [items] = await connection.query('SELECT * FROM order_items WHERE order_id = ?', [id]);
       for (const item of items) {
+        // Lock product row before restoring stock
+        await connection.query('SELECT id FROM products WHERE id = ? FOR UPDATE', [item.product_id]);
         await connection.query(
           'UPDATE products SET stock = stock + ?, sold = GREATEST(sold - ?, 0) WHERE id = ?',
           [item.quantity, item.quantity, item.product_id]
         );
         if (item.variant_id) {
+          // Lock variant row before restoring stock
+          await connection.query('SELECT id FROM product_variants WHERE id = ? FOR UPDATE', [item.variant_id]);
           await connection.query(
             'UPDATE product_variants SET stock = stock + ? WHERE id = ?',
             [item.quantity, item.variant_id]

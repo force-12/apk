@@ -39,7 +39,7 @@ const createOrder = async (req, res, next) => {
       return res.status(400).json({ message: 'Keranjang kosong.' });
     }
 
-    // Calculate totals
+    // Calculate totals and verify stock with row locking
     let subtotal = 0;
     const orderItems = [];
 
@@ -50,11 +50,35 @@ const createOrder = async (req, res, next) => {
       const itemSubtotal = finalPrice * item.quantity;
       subtotal += itemSubtotal;
 
-      // Check stock
-      const stock = item.variant_id ? item.variant_stock : item.product_stock;
-      if (item.quantity > stock) {
+      // Lock product row and read fresh stock
+      const [lockedProducts] = await connection.query(
+        'SELECT id, stock FROM products WHERE id = ? FOR UPDATE',
+        [item.product_id]
+      );
+      if (lockedProducts.length === 0) {
         await connection.rollback();
-        return res.status(400).json({ message: `Stok ${item.product_name} tidak mencukupi.` });
+        return res.status(400).json({ message: `Produk ${item.product_name} tidak ditemukan.` });
+      }
+
+      let freshStock = lockedProducts[0].stock;
+
+      // If variant, also lock variant row and use variant stock
+      if (item.variant_id) {
+        const [lockedVariants] = await connection.query(
+          'SELECT id, stock FROM product_variants WHERE id = ? AND product_id = ? FOR UPDATE',
+          [item.variant_id, item.product_id]
+        );
+        if (lockedVariants.length === 0) {
+          await connection.rollback();
+          return res.status(400).json({ message: `Varian produk ${item.product_name} tidak ditemukan.` });
+        }
+        freshStock = lockedVariants[0].stock;
+      }
+
+      // Check stock sufficiency using freshly locked data
+      if (item.quantity > freshStock) {
+        await connection.rollback();
+        return res.status(400).json({ message: `Stok ${item.product_name} tidak mencukupi. Tersedia: ${freshStock}.` });
       }
 
       orderItems.push({

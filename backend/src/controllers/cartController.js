@@ -1,5 +1,26 @@
 const db = require('../config/database');
 
+/**
+ * Helper: get available stock for a product or its variant.
+ * If variant_id is provided, returns variant stock; otherwise product stock.
+ */
+const getAvailableStock = async (connection, product_id, variant_id) => {
+  if (variant_id) {
+    const [variants] = await connection.query(
+      'SELECT stock FROM product_variants WHERE id = ? AND product_id = ?',
+      [variant_id, product_id]
+    );
+    if (variants.length === 0) return null; // variant not found or doesn't belong to product
+    return variants[0].stock;
+  }
+  const [products] = await connection.query(
+    'SELECT stock FROM products WHERE id = ?',
+    [product_id]
+  );
+  if (products.length === 0) return null;
+  return products[0].stock;
+};
+
 const getCart = async (req, res, next) => {
   try {
     // Get or create cart
@@ -53,14 +74,36 @@ const addToCart = async (req, res, next) => {
   try {
     const { product_id, variant_id, quantity = 1 } = req.body;
 
+    // Validate product_id
     if (!product_id) {
       return res.status(400).json({ message: 'Product ID wajib diisi.' });
     }
 
-    // Check product exists
+    // Validate quantity: must be integer >= 1
+    const qty = Number(quantity);
+    if (!Number.isInteger(qty) || qty < 1) {
+      return res.status(400).json({ message: 'Quantity harus berupa bilangan bulat minimal 1.' });
+    }
+
+    // Check product exists and is active
     const [products] = await db.query('SELECT id, stock FROM products WHERE id = ? AND is_active = 1', [product_id]);
     if (products.length === 0) {
       return res.status(404).json({ message: 'Produk tidak ditemukan.' });
+    }
+
+    // Validate variant_id belongs to the product if provided
+    let availableStock;
+    if (variant_id) {
+      const [variants] = await db.query(
+        'SELECT id, stock FROM product_variants WHERE id = ? AND product_id = ?',
+        [variant_id, product_id]
+      );
+      if (variants.length === 0) {
+        return res.status(400).json({ message: 'Varian tidak valid untuk produk ini.' });
+      }
+      availableStock = variants[0].stock;
+    } else {
+      availableStock = products[0].stock;
     }
 
     // Get or create cart
@@ -77,12 +120,23 @@ const addToCart = async (req, res, next) => {
       [cartId, product_id, variant_id || null, variant_id || null]
     );
 
+    // Calculate total quantity after addition
+    const existingQty = existing.length > 0 ? existing[0].quantity : 0;
+    const totalQty = existingQty + qty;
+
+    // Check stock availability
+    if (totalQty > availableStock) {
+      return res.status(400).json({
+        message: `Stok tidak mencukupi. Stok tersedia: ${availableStock}, di keranjang: ${existingQty}.`
+      });
+    }
+
     if (existing.length > 0) {
-      await db.query('UPDATE cart_items SET quantity = quantity + ? WHERE id = ?', [quantity, existing[0].id]);
+      await db.query('UPDATE cart_items SET quantity = quantity + ? WHERE id = ?', [qty, existing[0].id]);
     } else {
       await db.query(
         'INSERT INTO cart_items (cart_id, product_id, variant_id, quantity) VALUES (?, ?, ?, ?)',
-        [cartId, product_id, variant_id || null, quantity]
+        [cartId, product_id, variant_id || null, qty]
       );
     }
 
@@ -97,23 +151,43 @@ const updateCartItem = async (req, res, next) => {
     const { id } = req.params;
     const { quantity } = req.body;
 
-    if (!quantity || quantity < 1) {
-      return res.status(400).json({ message: 'Quantity minimal 1.' });
+    // Validate quantity: must be integer >= 1
+    const qty = Number(quantity);
+    if (!Number.isInteger(qty) || qty < 1) {
+      return res.status(400).json({ message: 'Quantity harus berupa bilangan bulat minimal 1.' });
     }
 
+    // Get user's cart
     const [carts] = await db.query('SELECT id FROM cart WHERE user_id = ?', [req.user.id]);
     if (carts.length === 0) {
       return res.status(404).json({ message: 'Keranjang tidak ditemukan.' });
     }
 
-    const [result] = await db.query(
-      'UPDATE cart_items SET quantity = ? WHERE id = ? AND cart_id = ?',
-      [quantity, id, carts[0].id]
+    // Verify cart item belongs to this user's cart and get product/variant info
+    const [cartItems] = await db.query(
+      'SELECT id, product_id, variant_id FROM cart_items WHERE id = ? AND cart_id = ?',
+      [id, carts[0].id]
     );
-
-    if (result.affectedRows === 0) {
+    if (cartItems.length === 0) {
       return res.status(404).json({ message: 'Item tidak ditemukan.' });
     }
+
+    const cartItem = cartItems[0];
+
+    // Get fresh stock from database
+    const availableStock = await getAvailableStock(db, cartItem.product_id, cartItem.variant_id);
+    if (availableStock === null) {
+      return res.status(404).json({ message: 'Produk atau varian tidak ditemukan.' });
+    }
+
+    // Check stock availability
+    if (qty > availableStock) {
+      return res.status(400).json({
+        message: `Stok tidak mencukupi. Stok tersedia: ${availableStock}.`
+      });
+    }
+
+    await db.query('UPDATE cart_items SET quantity = ? WHERE id = ?', [qty, cartItem.id]);
 
     res.json({ message: 'Quantity berhasil diperbarui.' });
   } catch (error) {

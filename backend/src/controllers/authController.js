@@ -108,11 +108,16 @@ const getProfile = async (req, res, next) => {
 
 const updateProfile = async (req, res, next) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ message: errors.array()[0].msg, errors: errors.array() });
+    }
+
     const { name, phone, address, province, city, district, postal_code } = req.body;
 
     await db.query(
       'UPDATE users SET name = ?, phone = ?, address = ?, province = ?, city = ?, district = ?, postal_code = ? WHERE id = ?',
-      [name, phone, address, province, city, district, postal_code, req.user.id]
+      [name, phone || null, address || null, province || null, city || null, district || null, postal_code || null, req.user.id]
     );
 
     res.json({ message: 'Profil berhasil diperbarui.' });

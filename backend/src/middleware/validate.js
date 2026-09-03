@@ -38,4 +38,45 @@ const checkoutValidation = [
   body('courier').trim().notEmpty().withMessage('Kurir wajib dipilih.')
 ];
 
-module.exports = { loginValidation, registerValidation, productValidation, checkoutValidation };
+const updateProfileValidation = [
+  body('name')
+    .trim()
+    .notEmpty().withMessage('Nama wajib diisi.')
+    .isLength({ min: 2, max: 100 }).withMessage('Nama harus 2-100 karakter.')
+    .isString().withMessage('Nama harus berupa teks.'),
+  body('phone')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isMobilePhone('id-ID').withMessage('Nomor HP tidak valid.'),
+  body('address')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isString().withMessage('Alamat harus berupa teks.')
+    .isLength({ max: 500 }).withMessage('Alamat maksimal 500 karakter.'),
+  body('province')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isString().withMessage('Provinsi harus berupa teks.')
+    .isLength({ max: 100 }).withMessage('Provinsi maksimal 100 karakter.'),
+  body('city')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isString().withMessage('Kota harus berupa teks.')
+    .isLength({ max: 100 }).withMessage('Kota maksimal 100 karakter.'),
+  body('district')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isString().withMessage('Kecamatan harus berupa teks.')
+    .isLength({ max: 100 }).withMessage('Kecamatan maksimal 100 karakter.'),
+  body('postal_code')
+    .optional({ values: 'falsy' })
+    .trim()
+    .isString().withMessage('Kode pos harus berupa teks.')
+    .isLength({ max: 10 }).withMessage('Kode pos maksimal 10 karakter.')
+    .matches(/^[0-9]*$/).withMessage('Kode pos hanya boleh berisi angka.'),
+  // Reject email and role from being sent
+  body('email').not().exists().withMessage('Email tidak dapat diubah melalui endpoint ini.'),
+  body('role').not().exists().withMessage('Role tidak dapat diubah melalui endpoint ini.')
+];
+
+module.exports = { loginValidation, registerValidation, productValidation, checkoutValidation, updateProfileValidation };
