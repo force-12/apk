@@ -9,9 +9,9 @@ const registerValidation = [
   body('name').trim().notEmpty().withMessage('Nama wajib diisi.').isLength({ min: 2, max: 100 }).withMessage('Nama harus 2-100 karakter.'),
   body('email').isEmail().withMessage('Email tidak valid.').normalizeEmail(),
   body('password').isLength({ min: 6 }).withMessage('Password minimal 6 karakter.'),
-  body('confirmPassword').custom((value, { req }) => {
+  body('password_confirmation').custom((value, { req }) => {
     if (value !== req.body.password) {
-      throw new Error('Konfirmasi password tidak cocok.');
+      throw new Error('Password tidak cocok.');
     }
     return true;
   }),
