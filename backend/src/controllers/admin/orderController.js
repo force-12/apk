@@ -1,9 +1,10 @@
 const db = require('../../config/database');
+const { sanitizePagination } = require('../../utils/helpers');
 
 const getOrders = async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, status, search } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { status, search } = req.query;
+    const { page, limit, offset } = sanitizePagination(req.query.page, req.query.limit);
 
     let query = `SELECT o.*, u.name as customer_name, u.email as customer_email
                  FROM orders o JOIN users u ON o.user_id = u.id WHERE 1=1`;
@@ -26,7 +27,7 @@ const getOrders = async (req, res, next) => {
     }
 
     query += ' ORDER BY o.created_at DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), offset);
+    params.push(limit, offset);
 
     const [orders] = await db.query(query, params);
     const [countResult] = await db.query(countQuery, countParams);
@@ -34,10 +35,10 @@ const getOrders = async (req, res, next) => {
     res.json({
       orders,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         total: countResult[0].total,
-        totalPages: Math.ceil(countResult[0].total / parseInt(limit))
+        totalPages: Math.ceil(countResult[0].total / limit)
       }
     });
   } catch (error) {

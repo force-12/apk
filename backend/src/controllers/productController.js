@@ -1,11 +1,14 @@
 const db = require('../config/database');
+const { sanitizePagination } = require('../utils/helpers');
 
 const getProducts = async (req, res, next) => {
   try {
     const {
       search, brand_id, category_id, min_price, max_price,
-      ram, storage, sort, page = 1, limit = 12
+      ram, storage, sort
     } = req.query;
+
+    const { page, limit, offset } = sanitizePagination(req.query.page, req.query.limit, { defaultLimit: 12 });
 
     let query = `
       SELECT p.*, b.name as brand_name, c.name as category_name
@@ -89,9 +92,8 @@ const getProducts = async (req, res, next) => {
         query += ' ORDER BY p.created_at DESC';
     }
 
-    const offset = (parseInt(page) - 1) * parseInt(limit);
     query += ' LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), offset);
+    params.push(limit, offset);
 
     const [products] = await db.query(query, params);
     const [countResult] = await db.query(countQuery, countParams);
@@ -99,10 +101,10 @@ const getProducts = async (req, res, next) => {
     res.json({
       products,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         total: countResult[0].total,
-        totalPages: Math.ceil(countResult[0].total / parseInt(limit))
+        totalPages: Math.ceil(countResult[0].total / limit)
       }
     });
   } catch (error) {

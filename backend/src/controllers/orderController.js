@@ -1,5 +1,5 @@
 const db = require('../config/database');
-const { generateOrderNumber } = require('../utils/helpers');
+const { generateOrderNumber, sanitizePagination } = require('../utils/helpers');
 const { validationResult } = require('express-validator');
 
 const createOrder = async (req, res, next) => {
@@ -130,7 +130,7 @@ const createOrder = async (req, res, next) => {
     // Create payment record
     await connection.query(
       'INSERT INTO payments (order_id, payment_method, payment_status, amount) VALUES (?, ?, ?, ?)',
-      [orderId, payment_method, payment_method === 'cod' ? 'pending' : 'pending', total]
+      [orderId, payment_method, 'pending', total]
     );
 
     // Clear cart
@@ -158,8 +158,8 @@ const createOrder = async (req, res, next) => {
 
 const getOrders = async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, status } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { status } = req.query;
+    const { page, limit, offset } = sanitizePagination(req.query.page, req.query.limit);
 
     let query = `SELECT o.*, 
       (SELECT COUNT(*) FROM order_items WHERE order_id = o.id) as item_count
@@ -176,7 +176,7 @@ const getOrders = async (req, res, next) => {
     }
 
     query += ' ORDER BY o.created_at DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), offset);
+    params.push(limit, offset);
 
     const [orders] = await db.query(query, params);
     const [countResult] = await db.query(countQuery, countParams);
@@ -198,10 +198,10 @@ const getOrders = async (req, res, next) => {
     res.json({
       orders,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         total: countResult[0].total,
-        totalPages: Math.ceil(countResult[0].total / parseInt(limit))
+        totalPages: Math.ceil(countResult[0].total / limit)
       }
     });
   } catch (error) {

@@ -4,6 +4,7 @@ const { validationResult } = require('express-validator');
 const db = require('../config/database');
 
 const register = async (req, res, next) => {
+  let connection;
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -12,14 +13,19 @@ const register = async (req, res, next) => {
 
     const { name, email, password, phone } = req.body;
 
-    const [existing] = await db.query('SELECT id FROM users WHERE email = ?', [email]);
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    const [existing] = await connection.query('SELECT id FROM users WHERE email = ?', [email]);
     if (existing.length > 0) {
+      await connection.rollback();
+      connection.release();
       return res.status(400).json({ message: 'Email sudah terdaftar.' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const [result] = await db.query(
+    const [result] = await connection.query(
       'INSERT INTO users (name, email, password, phone, role) VALUES (?, ?, ?, ?, ?)',
       [name, email, hashedPassword, phone || null, 'customer']
     );
@@ -29,7 +35,10 @@ const register = async (req, res, next) => {
     });
 
     // Create cart for user
-    await db.query('INSERT INTO cart (user_id) VALUES (?)', [result.insertId]);
+    await connection.query('INSERT INTO cart (user_id) VALUES (?)', [result.insertId]);
+
+    await connection.commit();
+    connection.release();
 
     res.status(201).json({
       message: 'Registrasi berhasil.',
@@ -37,6 +46,16 @@ const register = async (req, res, next) => {
       user: { id: result.insertId, name, email, role: 'customer' }
     });
   } catch (error) {
+    if (connection) {
+      try { await connection.rollback(); } catch (err) {}
+      connection.release();
+    }
+    
+    // Duplicate entry safeguard
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ message: 'Email sudah terdaftar.' });
+    }
+    
     next(error);
   }
 };
@@ -128,17 +147,18 @@ const updateProfile = async (req, res, next) => {
 
 const changePassword = async (req, res, next) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ message: errors.array()[0].msg, errors: errors.array() });
+    }
+
     const { currentPassword, newPassword } = req.body;
 
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({ message: 'Password lama dan baru wajib diisi.' });
-    }
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: 'Password baru minimal 6 karakter.' });
-    }
-
     const [users] = await db.query('SELECT password FROM users WHERE id = ?', [req.user.id]);
+    if (users.length === 0) {
+      return res.status(404).json({ message: 'User tidak ditemukan atau sudah dihapus.' });
+    }
+
     const isMatch = await bcrypt.compare(currentPassword, users[0].password);
     if (!isMatch) {
       return res.status(400).json({ message: 'Password lama salah.' });

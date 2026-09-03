@@ -79,4 +79,28 @@ const updateProfileValidation = [
   body('role').not().exists().withMessage('Role tidak dapat diubah melalui endpoint ini.')
 ];
 
-module.exports = { loginValidation, registerValidation, productValidation, checkoutValidation, updateProfileValidation };
+const changePasswordValidation = [
+  body('currentPassword')
+    .notEmpty().withMessage('Password lama wajib diisi.')
+    .isString().withMessage('Password lama harus berupa teks.'),
+  body('newPassword')
+    .notEmpty().withMessage('Password baru wajib diisi.')
+    .isString().withMessage('Password baru harus berupa teks.')
+    .isLength({ min: 6 }).withMessage('Password baru minimal 6 karakter.')
+    .custom((value, { req }) => {
+      if (value === req.body.currentPassword) {
+        throw new Error('Password baru tidak boleh sama dengan password lama.');
+      }
+      return true;
+    })
+];
+
+const variantValidation = [
+  body('price').isFloat({ min: 0 }).withMessage('Harga harus angka positif.'),
+  body('stock').optional().isInt({ min: 0 }).withMessage('Stok harus angka bulat positif.'),
+  body('ram').optional().isString().trim(),
+  body('storage').optional().isString().trim(),
+  body('color').optional().isString().trim()
+];
+
+module.exports = { loginValidation, registerValidation, productValidation, checkoutValidation, updateProfileValidation, changePasswordValidation, variantValidation };

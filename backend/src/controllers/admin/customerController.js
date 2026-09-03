@@ -1,9 +1,10 @@
 const db = require('../../config/database');
+const { sanitizePagination } = require('../../utils/helpers');
 
 const getCustomers = async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, search } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { search } = req.query;
+    const { page, limit, offset } = sanitizePagination(req.query.page, req.query.limit);
 
     let query = `SELECT u.id, u.name, u.email, u.phone, u.is_active, u.created_at,
                  COUNT(DISTINCT o.id) as order_count,
@@ -23,7 +24,7 @@ const getCustomers = async (req, res, next) => {
     }
 
     query += ' GROUP BY u.id ORDER BY u.created_at DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), offset);
+    params.push(limit, offset);
 
     const [customers] = await db.query(query, params);
     const [countResult] = await db.query(countQuery, countParams);
@@ -31,10 +32,10 @@ const getCustomers = async (req, res, next) => {
     res.json({
       customers,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         total: countResult[0].total,
-        totalPages: Math.ceil(countResult[0].total / parseInt(limit))
+        totalPages: Math.ceil(countResult[0].total / limit)
       }
     });
   } catch (error) {
@@ -84,13 +85,13 @@ const toggleCustomerStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const [users] = await db.query('SELECT is_active FROM users WHERE id = ?', [id]);
+    const [users] = await db.query('SELECT is_active FROM users WHERE id = ? AND role = ?', [id, 'customer']);
     if (users.length === 0) {
       return res.status(404).json({ message: 'Customer tidak ditemukan.' });
     }
 
     const newStatus = !users[0].is_active;
-    await db.query('UPDATE users SET is_active = ? WHERE id = ?', [newStatus, id]);
+    await db.query('UPDATE users SET is_active = ? WHERE id = ? AND role = ?', [newStatus, id, 'customer']);
 
     res.json({
       message: newStatus ? 'Akun berhasil diaktifkan.' : 'Akun berhasil dinonaktifkan.',
